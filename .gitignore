@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.coverage
+.pytest_cache/
+venv/
+.venv/
+
+# Terraform
+infrastructure/.terraform/
+infrastructure/terraform.tfstate
+infrastructure/terraform.tfstate.backup
+
+# Build artifacts
+build/
+
+# Misc
+*.zip

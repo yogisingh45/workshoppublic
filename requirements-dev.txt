@@ -1,0 +1,8 @@
+# Test dependencies — not included in Lambda deployment packages
+#
+# Note: moto dropped mock_dynamodb in v4 in favour of the unified mock_aws
+# decorator, which covers all AWS services including DynamoDB.
+pytest>=7.0
+pytest-cov>=4.0
+moto[dynamodb]>=4.0
+boto3>=1.34.0

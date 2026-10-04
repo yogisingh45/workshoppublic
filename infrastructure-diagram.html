@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workshop Infrastructure — Serverless Patterns</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --surface-2:      #f0f0ee;
+    --surface-card:   #ffffff;
+    --border:         #e2e1dc;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #8a8880;
+
+    /* service colors — categorical slots */
+    --c-apigw:      #4a3aa7;   /* violet  — API Gateway      */
+    --c-lambda:     #eb6834;   /* orange  — Lambda           */
+    --c-dynamo:     #2a78d6;   /* blue    — DynamoDB         */
+    --c-cw:         #1baf7a;   /* aqua    — CloudWatch       */
+    --c-iam:        #e87ba4;   /* magenta — IAM              */
+    --c-xray:       #eda100;   /* yellow  — X-Ray            */
+    --c-client:     #52514e;   /* neutral — Client           */
+    --c-cognito:    #0891b2;   /* cyan    — Cognito          */
+
+    --c-apigw-bg:   #eeebfb;
+    --c-lambda-bg:  #fdf0e9;
+    --c-dynamo-bg:  #e8f1fc;
+    --c-cw-bg:      #e5f6f0;
+    --c-iam-bg:     #fdf0f5;
+    --c-xray-bg:    #fdf6e3;
+    --c-cognito-bg: #e0f7fb;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:    #1a1a19;
+      --surface-2:    #242422;
+      --surface-card: #2a2a28;
+      --border:       #3a3a38;
+      --text-primary: #ffffff;
+      --text-secondary:#c3c2b7;
+      --text-muted:   #7a7970;
+
+      --c-apigw:      #9085e9;
+      --c-lambda:     #d95926;
+      --c-dynamo:     #3987e5;
+      --c-cw:         #199e70;
+      --c-iam:        #d55181;
+      --c-xray:       #c98500;
+      --c-client:     #c3c2b7;
+      --c-cognito:    #06b6d4;
+
+      --c-apigw-bg:   #25214a;
+      --c-lambda-bg:  #3d2010;
+      --c-dynamo-bg:  #0f2040;
+      --c-cw-bg:      #0d3326;
+      --c-iam-bg:     #3d1020;
+      --c-xray-bg:    #3a2c00;
+      --c-cognito-bg: #062830;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    padding: 32px 24px 48px;
+  }
+
+  .viz-root {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  header { margin-bottom: 32px; }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  header p {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  /* ── diagram canvas ── */
+  .diagram {
+    position: relative;
+    width: 100%;
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px 32px;
+    overflow: hidden;
+  }
+
+  /* ── service cards ── */
+  .card {
+    position: absolute;
+    border-radius: 10px;
+    border: 1.5px solid;
+    padding: 14px 18px;
+    min-width: 200px;
+  }
+
+  .card-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .card-name {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+
+  .card-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .card-meta span { display: block; }
+
+  /* ── per-service card colors ── */
+  .card-client  { background: var(--surface-2);     border-color: var(--border);      }
+  .card-apigw   { background: var(--c-apigw-bg);    border-color: var(--c-apigw);     }
+  .card-lambda  { background: var(--c-lambda-bg);   border-color: var(--c-lambda);    }
+  .card-dynamo  { background: var(--c-dynamo-bg);   border-color: var(--c-dynamo);    }
+  .card-cw      { background: var(--c-cw-bg);       border-color: var(--c-cw);        }
+  .card-iam     { background: var(--c-iam-bg);      border-color: var(--c-iam);       }
+  .card-xray    { background: var(--c-xray-bg);     border-color: var(--c-xray);      }
+  .card-cognito { background: var(--c-cognito-bg);  border-color: var(--c-cognito);   }
+
+  .lbl-client  { color: var(--c-client);  }
+  .lbl-apigw   { color: var(--c-apigw);   }
+  .lbl-lambda  { color: var(--c-lambda);  }
+  .lbl-dynamo  { color: var(--c-dynamo);  }
+  .lbl-cw      { color: var(--c-cw);      }
+  .lbl-iam     { color: var(--c-iam);     }
+  .lbl-xray    { color: var(--c-xray);    }
+  .lbl-cognito { color: var(--c-cognito); }
+
+  /* ── icon dots ── */
+  .icon-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    position: relative; top: -1px;
+  }
+
+  .dot-client  { background: var(--c-client);  }
+  .dot-apigw   { background: var(--c-apigw);   }
+  .dot-lambda  { background: var(--c-lambda);  }
+  .dot-dynamo  { background: var(--c-dynamo);  }
+  .dot-cw      { background: var(--c-cw);      }
+  .dot-iam     { background: var(--c-iam);     }
+  .dot-xray    { background: var(--c-xray);    }
+  .dot-cognito { background: var(--c-cognito); }
+
+  /* ── SVG arrows ── */
+  .arrows {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .arrow-main { stroke: var(--text-secondary); stroke-width: 1.5; fill: none; }
+  .arrow-auth { stroke: var(--c-cognito);      stroke-width: 1.5; fill: none; }
+  .arrow-side { stroke: var(--border); stroke-width: 1.5; fill: none; stroke-dasharray: 5 3; }
+
+  .arrowhead      { fill: var(--text-secondary); }
+  .arrowhead-auth { fill: var(--c-cognito);      }
+  .arrowhead-side { fill: var(--border);         }
+
+  .flow-label {
+    font-size: 10px;
+    fill: var(--text-muted);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .flow-label-auth {
+    font-size: 10px;
+    fill: var(--c-cognito);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  /* ── legend ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 28px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-line {
+    width: 24px; height: 2px;
+    flex-shrink: 0;
+  }
+
+  .legend-line-solid  { background: var(--text-secondary); }
+  .legend-line-auth   { background: var(--c-cognito); }
+  .legend-line-dashed {
+    background: repeating-linear-gradient(
+      to right,
+      var(--border) 0, var(--border) 5px,
+      transparent 5px, transparent 8px
+    );
+  }
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <header>
+    <h1>Serverless Patterns Workshop — Deployed Infrastructure</h1>
+    <p>us-west-2 · account 426560230275 · stage: prod · with JWT authentication</p>
+  </header>
+
+  <!--
+    Layout grid (px from top-left of .diagram padding box):
+    Canvas: 1036 × 900
+
+    Main path (center x ≈ 488):
+      Client:           top:30   left:368  w:264  h:78
+      API Gateway:      top:155  left:273  w:430  h:182
+      Lambda (users):   top:492  left:273  w:430  h:148
+      DynamoDB:         top:758  left:368  w:264  h:100
+
+    Auth path (right column, center x ≈ 876):
+      Lambda Authorizer: top:198  left:754  w:244  h:152
+      Cognito:           top:453  left:754  w:244  h:120
+
+    Left observability:
+      CW API GW logs:   top:172  left:20   w:220  h:90
+      IAM Users Lambda: top:503  left:20   w:220  h:116
+      CW Lambda logs:   top:643  left:20   w:220  h:82
+
+    Right observability:
+      X-Ray:            top:643  left:754  w:244  h:78
+  -->
+
+  <div class="diagram" style="height: 900px;">
+
+    <!-- SVG arrows layer -->
+    <svg class="arrows" viewBox="0 0 1036 900" preserveAspectRatio="none"
+         aria-hidden="true">
+      <defs>
+        <!-- main request flow arrowhead -->
+        <marker id="ah" markerWidth="8" markerHeight="6"
+                refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" class="arrowhead"/>
+        </marker>
+        <!-- auth flow arrowhead (cyan) -->
+        <marker id="ah-auth" markerWidth="8" markerHeight="6"
+                refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" class="arrowhead-auth"/>
+        </marker>
+        <!-- observability arrowhead -->
+        <marker id="ah-side" markerWidth="8" markerHeight="6"
+                refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" class="arrowhead-side"/>
+        </marker>
+      </defs>
+
+      <!-- ── Main request path (solid gray) ── -->
+
+      <!-- Client → API Gateway -->
+      <line x1="500" y1="108" x2="500" y2="152"
+            class="arrow-main" marker-end="url(#ah)"/>
+      <text x="508" y="133" class="flow-label">HTTPS · Bearer JWT · x-api-key</text>
+
+      <!-- API Gateway → Lambda users -->
+      <line x1="488" y1="337" x2="488" y2="489"
+            class="arrow-main" marker-end="url(#ah)"/>
+      <text x="496" y="415" class="flow-label">AWS_PROXY (POST /invocations)</text>
+
+      <!-- Lambda users → DynamoDB -->
+      <line x1="488" y1="640" x2="488" y2="755"
+            class="arrow-main" marker-end="url(#ah)"/>
+      <text x="496" y="700" class="flow-label">GetItem / PutItem / UpdateItem / DeleteItem / Scan</text>
+
+      <!-- ── Auth path (cyan) ── -->
+
+      <!-- API Gateway → Lambda Authorizer (horizontal right) -->
+      <line x1="703" y1="248" x2="752" y2="274"
+            class="arrow-auth" marker-end="url(#ah-auth)"/>
+      <text x="706" y="243" class="flow-label-auth">invoke (TOKEN auth)</text>
+
+      <!-- Lambda Authorizer → Cognito (vertical) -->
+      <line x1="876" y1="350" x2="876" y2="450"
+            class="arrow-auth" marker-end="url(#ah-auth)"/>
+      <text x="884" y="403" class="flow-label-auth">JWKS fetch (RS256)</text>
+
+      <!-- ── Observability flows (dashed gray) ── -->
+
+      <!-- API Gateway → CW access logs (left) -->
+      <line x1="273" y1="218" x2="242" y2="218"
+            class="arrow-side" marker-end="url(#ah-side)"/>
+      <text x="269" y="213" class="flow-label" text-anchor="end">access logs</text>
+
+      <!-- Lambda users → IAM role (left) -->
+      <line x1="273" y1="558" x2="242" y2="558"
+            class="arrow-side" marker-end="url(#ah-side)"/>
+      <text x="269" y="553" class="flow-label" text-anchor="end">assume role</text>
+
+      <!-- Lambda users → CW execution logs (diagonal left-down) -->
+      <line x1="273" y1="606" x2="242" y2="681"
+            class="arrow-side" marker-end="url(#ah-side)"/>
+      <text x="261" y="650" class="flow-label" text-anchor="end">exec logs</text>
+
+      <!-- Lambda users → X-Ray (diagonal right-down) -->
+      <line x1="703" y1="558" x2="752" y2="682"
+            class="arrow-side" marker-end="url(#ah-side)"/>
+      <text x="726" y="615" class="flow-label">traces</text>
+
+    </svg>
+
+    <!-- ── Client ── -->
+    <div class="card card-client" style="top:30px;left:368px;width:264px;">
+      <div class="card-label lbl-client">
+        <span class="icon-dot dot-client"></span>Client
+      </div>
+      <div class="card-name">Internet / Browser / curl</div>
+      <div class="card-meta">
+        <span>Any HTTP client</span>
+        <span>Header: <strong>Authorization: Bearer &lt;JWT&gt;</strong></span>
+        <span>Header: <strong>x-api-key</strong></span>
+      </div>
+    </div>
+
+    <!-- ── API Gateway ── -->
+    <div class="card card-apigw" style="top:155px;left:273px;width:430px;">
+      <div class="card-label lbl-apigw">
+        <span class="icon-dot dot-apigw"></span>API Gateway — REST API (v1)
+      </div>
+      <div class="card-name">workshop_users_api</div>
+      <div class="card-meta">
+        <span>Regional endpoint · stage: <strong>prod</strong></span>
+        <span>Routes: GET /users · POST /users · GET /users/{userid}</span>
+        <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PUT /users/{userid} · DELETE /users/{userid}</span>
+        <span>OPTIONS (CORS preflight, MOCK, no auth) on both resources</span>
+        <span>Authorizer: TOKEN · workshop_cognito_jwt_authorizer · 300 s TTL</span>
+        <span>API Key + Usage Plan · 100 req/s · 10 k req/day · X-Ray on</span>
+      </div>
+    </div>
+
+    <!-- ── Lambda Authorizer (auth path) ── -->
+    <div class="card card-lambda" style="top:198px;left:754px;width:244px;">
+      <div class="card-label lbl-lambda">
+        <span class="icon-dot dot-lambda"></span>Lambda — TOKEN Authorizer
+      </div>
+      <div class="card-name">workshop_authorizer</div>
+      <div class="card-meta">
+        <span>Python 3.10 · 128 MB · 10 s timeout</span>
+        <span>Verifies RS256 signature via JWKS</span>
+        <span>Checks: iss · aud · exp · token_use=id</span>
+        <span>Returns: Allow policy scoped to stage/*</span>
+        <span>Context: sub · email · groups</span>
+        <span>Logs: /aws/lambda/workshop_authorizer</span>
+      </div>
+    </div>
+
+    <!-- ── Cognito User Pool (auth path) ── -->
+    <div class="card card-cognito" style="top:453px;left:754px;width:244px;">
+      <div class="card-label lbl-cognito">
+        <span class="icon-dot dot-cognito"></span>Amazon Cognito
+      </div>
+      <div class="card-name">workshop-user-pool</div>
+      <div class="card-meta">
+        <span>User Pool ID: us-west-2_JVpElG4Xv</span>
+        <span>Client ID: 5e6v4m5cqk9tut3qd1ll8gi6df</span>
+        <span>Flows: SRP · Password · Refresh Token</span>
+        <span>JWKS: /.well-known/jwks.json (RS256)</span>
+        <span>Group: Administrators</span>
+      </div>
+    </div>
+
+    <!-- ── Lambda users (main path) ── -->
+    <div class="card card-lambda" style="top:492px;left:273px;width:430px;">
+      <div class="card-label lbl-lambda">
+        <span class="icon-dot dot-lambda"></span>Lambda Function
+      </div>
+      <div class="card-name">workshop_users_api</div>
+      <div class="card-meta">
+        <span>Runtime: Python 3.10 · Handler: lambda_function.handler</span>
+        <span>Memory: 256 MB · Timeout: 30 s · X-Ray: Active</span>
+        <span>Env: USERS_TABLE_NAME=workshop_users</span>
+        <span>Identity available via: event["requestContext"]["authorizer"]</span>
+      </div>
+    </div>
+
+    <!-- ── DynamoDB ── -->
+    <div class="card card-dynamo" style="top:758px;left:368px;width:264px;">
+      <div class="card-label lbl-dynamo">
+        <span class="icon-dot dot-dynamo"></span>DynamoDB
+      </div>
+      <div class="card-name">workshop_users</div>
+      <div class="card-meta">
+        <span>PK: userid (String) · Billing: PAY_PER_REQUEST</span>
+        <span>PITR enabled · SSE (aws/dynamodb)</span>
+      </div>
+    </div>
+
+    <!-- ── CloudWatch — API Gateway ── -->
+    <div class="card card-cw" style="top:172px;left:20px;width:220px;">
+      <div class="card-label lbl-cw">
+        <span class="icon-dot dot-cw"></span>CloudWatch Logs
+      </div>
+      <div class="card-name">API Gateway Access Logs</div>
+      <div class="card-meta">
+        <span>/aws/apigateway/workshop_users_api</span>
+        <span>Retention: 30 days · JSON format</span>
+      </div>
+    </div>
+
+    <!-- ── IAM Role — Lambda users ── -->
+    <div class="card card-iam" style="top:503px;left:20px;width:220px;">
+      <div class="card-label lbl-iam">
+        <span class="icon-dot dot-iam"></span>IAM Role
+      </div>
+      <div class="card-name">workshop_users_lambda_role</div>
+      <div class="card-meta">
+        <span>AWSLambdaBasicExecutionRole</span>
+        <span>AWSXRayDaemonWriteAccess</span>
+        <span>DynamoDB: GetItem PutItem UpdateItem</span>
+        <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DeleteItem Scan — table ARN only</span>
+      </div>
+    </div>
+
+    <!-- ── CloudWatch — Lambda users ── -->
+    <div class="card card-cw" style="top:643px;left:20px;width:220px;">
+      <div class="card-label lbl-cw">
+        <span class="icon-dot dot-cw"></span>CloudWatch Logs
+      </div>
+      <div class="card-name">Lambda Execution Logs</div>
+      <div class="card-meta">
+        <span>/aws/lambda/workshop_users_api</span>
+        <span>Retention: 30 days · Level: INFO</span>
+      </div>
+    </div>
+
+    <!-- ── X-Ray ── -->
+    <div class="card card-xray" style="top:643px;left:754px;width:244px;">
+      <div class="card-label lbl-xray">
+        <span class="icon-dot dot-xray"></span>X-Ray
+      </div>
+      <div class="card-name">Distributed Tracing</div>
+      <div class="card-meta">
+        <span>Active on Lambda users + API Gateway prod stage</span>
+      </div>
+    </div>
+
+  </div><!-- .diagram -->
+
+  <div class="legend" role="list" aria-label="Legend">
+    <div class="legend-item" role="listitem">
+      <div class="legend-line legend-line-solid"></div>
+      Request / data flow
+    </div>
+    <div class="legend-item" role="listitem">
+      <div class="legend-line legend-line-auth"></div>
+      Auth flow (JWT validation)
+    </div>
+    <div class="legend-item" role="listitem">
+      <div class="legend-line legend-line-dashed"></div>
+      Observability / permissions
+    </div>
+    <div class="legend-item" role="listitem">
+      <span class="icon-dot dot-apigw"></span> API Gateway
+    </div>
+    <div class="legend-item" role="listitem">
+      <span class="icon-dot dot-lambda"></span> Lambda
+    </div>
+    <div class="legend-item" role="listitem">
+      <span class="icon-dot dot-cognito"></span> Cognito
+    </div>
+    <div class="legend-item" role="listitem">
+      <span class="icon-dot dot-dynamo"></span> DynamoDB
+    </div>
+    <div class="legend-item" role="listitem">
+      <span class="icon-dot dot-cw"></span> CloudWatch Logs
+    </div>
+    <div class="legend-item" role="listitem">
+      <span class="icon-dot dot-iam"></span> IAM
+    </div>
+    <div class="legend-item" role="listitem">
+      <span class="icon-dot dot-xray"></span> X-Ray
+    </div>
+  </div>
+
+</div><!-- .viz-root -->
+</body>
+</html>
